@@ -396,6 +396,10 @@ void Copter::allocate_motors(void)
             motors = new AP_MotorsCoax(copter.scheduler.get_loop_rate_hz());
             motors_var_info = AP_MotorsCoax::var_info;
             break;
+        case AP_Motors::MOTOR_FRAME_COAX_GIMBAL:
+            motors = new AP_MotorsGimbal(copter.scheduler.get_loop_rate_hz());
+            motors_var_info = AP_MotorsGimbal::var_info;
+            break;
         case AP_Motors::MOTOR_FRAME_TAILSITTER:
             motors = new AP_MotorsTailsitter(copter.scheduler.get_loop_rate_hz());
             motors_var_info = AP_MotorsTailsitter::var_info;
