@@ -6,10 +6,7 @@
 #include <AP_HAL/AP_HAL.h>
 #include <AP_BattMonitor/AP_BattMonitor.h>
 #include <AP_Motors/AP_Motors.h>
-#include <AP_BattMonitor/AP_BattMonitor.h>
-// #include <SRV_Channel/SRV_Channel.h>
 #include <AP_BoardConfig/AP_BoardConfig.h>
-#include <RC_Channel/RC_Channel.h>
 #include <GCS_MAVLink/GCS_Dummy.h>
 
 /* run with:
@@ -23,21 +20,19 @@ void loop();
 // void motor_order_test();
 
 const AP_HAL::HAL& hal = AP_HAL::get_HAL();
+AP_BattMonitor _battmonitor{0, nullptr, nullptr};
 
 class Sys{
 public:
-    
-    AP_BattMonitor _battmonitor{0, nullptr, nullptr};
-    // SRV_Channels srvs;
 
     AP_MotorsGimbal motors; // loop_rate = 400
+    // AP_MotorsCoax  motors;
 
     Sys():motors(400) {};
 
     void init(){
-        _battmonitor.init();
-        motors.set_update_rate(490);
         motors.init(AP_Motors::MOTOR_FRAME_COAX_GIMBAL, AP_Motors::MOTOR_FRAME_TYPE_COAXIAL_GIMBAL);
+        // motors.init(AP_Motors::MOTOR_FRAME_COAX, AP_Motors::MOTOR_FRAME_TYPE_COAXIAL_GIMBAL);
 
         motors.output_min();
     };
@@ -52,29 +47,33 @@ public:
         // motor 2 is for servo 2
         // motor 3 is for ESC1
         // motor 4 is for ESC2
-        for (int8_t i=1; i <= 2; i++) {
+        hal.rcout->enable_ch(CH_3);
+        hal.rcout->enable_ch(CH_4);
+        for (int8_t i=3; i <= 4; i++) {
             hal.console->printf("Testing Servo %d\n",(int)i);
-            for (int pwm=1000; pwm<1150; pwm+=15){
+            for (int pwm=1000; pwm<2000; pwm+=1){
                 motors.output_test_seq(i, pwm);
-                hal.scheduler->delay(100);
+                SRV_Channels::output_ch_all();
+                hal.scheduler->delay(5);
             }
             hal.scheduler->delay(1000);
-            for (int pwm=1150; pwm>1000; pwm-=15){
+            for (int pwm=2000; pwm>1000; pwm-=1){
                 motors.output_test_seq(i, pwm);
-                hal.scheduler->delay(100);
+                SRV_Channels::output_ch_all();
+                hal.scheduler->delay(5);
             }
 
             hal.scheduler->delay(2000);
         }
         
-        for (int8_t i=1; i <= 2; i++) {
-            hal.console->printf("Testing BLDC %d\n",(int)i);
-            motors.output_test_seq(i+2, 1150);
-            hal.scheduler->delay(100);
-            motors.output_test_seq(i+2, 1000);
+        // for (int8_t i=1; i <= 2; i++) {
+        //     hal.console->printf("Testing BLDC %d\n",(int)i);
+        //     motors.output_test_seq(i+2, 1150);
+        //     hal.scheduler->delay(100);
+        //     motors.output_test_seq(i+2, 1000);
 
-            hal.scheduler->delay(2000);
-        }
+        //     hal.scheduler->delay(2000);
+        // }
         motors.armed(false);
         hal.console->printf("finished test.\n");
     };
@@ -82,7 +81,6 @@ public:
 
 static AP_BoardConfig BoardConfig;
 
-Sys sys;
 
 /*
  *  rotation tests
@@ -92,19 +90,24 @@ void setup(void)
     BoardConfig.init();
     hal.console->begin(115200);
     hal.console->printf("Coaxial motor library testing\n");
+    // SRV_Channels::set_aux_channel_default(SRV_Channel::k_throttleRight, CH_3);
+    // SRV_Channels::set_aux_channel_default(SRV_Channel::k_throttleLeft, CH_4);
+    SRV_Channels::set_default_function(CH_3, SRV_Channel::k_throttleRight);
+    SRV_Channels::set_default_function(CH_4, SRV_Channel::k_throttleLeft);
+    hal.scheduler->delay(5000);
 }
 
 void loop(void) {
+    Sys sys;
     int16_t value;
 
     // display help
-    hal.scheduler->delay(5000);
-    hal.console->printf("Press 't' to run motor orders test, 's' to run stability patch test.  Be careful the motors will spin!\n");
-    
+    hal.console->printf("Initializing\n");
+    _battmonitor.init();
     sys.init();
-
+    hal.console->printf("Initialized\n");
     while(true){
-        // wait for user to enter something
+        hal.console->printf("Press 't' to run motor orders test, 's' to run stability patch test.  Be careful the motors will spin!\n");
         while( !hal.console->available() ) {
             hal.console->printf("Waiting\n");
             hal.scheduler->delay(100);
@@ -115,12 +118,8 @@ void loop(void) {
         // test motors
         if (value == 't' || value == 'T') {
             hal.console->printf("Running test\n");
-            // motor_order_test();
             sys.motor_order_test();
         }
-        // if (value == 's' || value == 'S') {
-        //     // stability_test();
-        // }
     }
 }
 

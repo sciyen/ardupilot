@@ -41,11 +41,14 @@ void AP_MotorsGimbal::init(motor_frame_class frame_class, motor_frame_type frame
     // set the motor_enabled flag so that the main ESC can be calibrated like other frame types
     motor_enabled[AP_MOTORS_MOT_3] = true;
     motor_enabled[AP_MOTORS_MOT_4] = true;
+    // SRV_Channels::enable_aux_servos();
+
+    set_update_rate(_speed_hz);
 
     hal.console->printf("Setting angles\n");
     // setup actuator scaling (servo)
     for (uint8_t i = 0; i < _num_actuators; i++) {
-        SRV_Channels::set_angle(SRV_Channels::get_motor_function(i), AP_MOTORS_GIMBAL_SERVO_INPUT_RANGE);
+        SRV_Channels::set_angle(SRV_Channels::get_motor_function(CH_3 + i), AP_MOTORS_GIMBAL_SERVO_INPUT_RANGE);
     }
 
     _mav_type = MAV_TYPE_COAXIAL;
@@ -68,8 +71,8 @@ void AP_MotorsGimbal::set_update_rate(uint16_t speed_hz)
     _speed_hz = speed_hz;
 
     uint32_t mask =
-        1U << AP_MOTORS_MOT_3 |
-        1U << AP_MOTORS_MOT_4 ;
+        1U << AP_MOTORS_MOT_1 |
+        1U << AP_MOTORS_MOT_2 ;
     rc_set_freq(mask, _speed_hz);
 }
 
@@ -113,8 +116,8 @@ void AP_MotorsGimbal::output_to_motors()
 uint32_t AP_MotorsGimbal::get_motor_mask()
 {
     uint32_t motor_mask =
-        1U << AP_MOTORS_MOT_3 |
-        1U << AP_MOTORS_MOT_4;
+        1U << AP_MOTORS_MOT_1 |
+        1U << AP_MOTORS_MOT_2;
     uint32_t mask = motor_mask_to_srv_channel_mask(motor_mask);
 
     // add parent's mask
