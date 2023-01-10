@@ -20,8 +20,8 @@
 
 #define AP_MOTORS_GIMBAL_SERVO_INPUT_RANGE    4500    // roll or pitch input of -4500 will cause servos to their minimum (i.e. radio_min), +4500 will move them to their maximum (i.e. radio_max)
 
-#define UPPER_MOTOR_CH AP_MOTORS_MOT_1
-#define LOWER_MOTOR_CH AP_MOTORS_MOT_2
+#define UPPER_MOTOR_CH AP_MOTORS_MOT_2
+#define LOWER_MOTOR_CH AP_MOTORS_MOT_1
 #define X_AXIS_SERVO_CH AP_MOTORS_MOT_4
 #define Y_AXIS_SERVO_CH AP_MOTORS_MOT_3
 

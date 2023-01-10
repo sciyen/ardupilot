@@ -195,8 +195,10 @@ void AP_MotorsGimbal::output_armed_stabilizing()
 {
     // const float C_D;
     // const float C_L;
-    const float k_d = 0.5f; // = k_w * k_w * rho * power(d, 5) * C_D
-    const float k_f = 1.5f * 9.818f; // = k_w * k_w * rho * power(d, 4) * C_L
+    // const float k_d = 0.5f; // = k_w * k_w * rho * power(d, 5) * C_D
+    // const float k_f = 1.5f * 9.818f; // = k_w * k_w * rho * power(d, 4) * C_L
+    const float k_d = 1.0f; // = k_w * k_w * rho * power(d, 5) * C_D
+    const float k_f = 10.0f; // = k_w * k_w * rho * power(d, 4) * C_L
     // const float prop_d = 9 * 0.0254;    // meter
     const float max_M_x = 0.1f;         // Nm
     const float max_M_y = 0.1f;         // Nm
