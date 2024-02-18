@@ -92,6 +92,13 @@ public:
 
     bool logging;
 
+    enum TEST_MODE {
+        THRUST_TEST, 
+        TORQUE_TEST,
+        POWER_CONSUME,
+        MIXING_EVA
+    };
+
     Sys():motors(400), scale(4, 9600), spin_estimator(5, 115200)
     {logging = false;};
 
@@ -233,7 +240,7 @@ public:
     }
 
 
-    void output_arm_test2(){
+    void output_arm_test2(TEST_MODE mode){
         // Motors warm up
         hal.console->printf("output testing 1\n");
         motors.armed(true);
@@ -256,9 +263,20 @@ public:
             current_time = AP_HAL::millis();
             if (current_time - last_update_time >= 5){
                 float t = (current_time - test_start_time) / 1000.0f;
-                // _drag_torque_test(t);
-                _thrust_test(t);
-                // _power_consume(t);
+                switch (mode){
+                    case TEST_MODE::THRUST_TEST:
+                        _thrust_test(t);
+                        break;
+                    case TEST_MODE::TORQUE_TEST:
+                        _drag_torque_test(t);
+                        break;
+                    case TEST_MODE::POWER_CONSUME:
+                        _power_consume(t);
+                        break;
+                    case TEST_MODE::MIXING_EVA:
+                        _mixing_evaluation(t);
+                        break;
+                }
                 motors.output_test();
                 last_update_time = current_time;
             }
@@ -322,6 +340,15 @@ private:
         motors.set_yaw(-out);       // M_z, Nm
         motors.set_throttle(8);  // T_f, N
     }
+
+    void _mixing_evaluation(float t){
+        // float amp = 0.07f;
+        // float out = amp * sinf(t) + amp * sinf(1.3 * t);
+        motors.set_roll(0.1f);      // M_x, Nm
+        motors.set_pitch(0.0f);     // M_y, Nm
+        motors.set_yaw(0.0f);       // M_z, Nm
+        motors.set_throttle(3.0f);  // T_f, N
+    }
 };
 
 static AP_BoardConfig BoardConfig;
@@ -362,7 +389,7 @@ void loop(void) {
         if (value == 't' || value == 'T') {
             hal.console->printf("Running test\n");
             // sys.motor_order_test();
-            sys.output_arm_test2();
+            sys.output_arm_test2(Sys::TEST_MODE::MIXING_EVA);
         }
         sys.scale.update();
     }

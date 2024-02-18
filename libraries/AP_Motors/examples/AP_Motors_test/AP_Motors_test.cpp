@@ -11,6 +11,7 @@
 #include <AP_Motors/AP_Motors.h>
 #include <RC_Channel/RC_Channel.h>
 #include <SRV_Channel/SRV_Channel.h>
+#include <GCS_MAVLink/GCS_Dummy.h>
 
 const AP_HAL::HAL& hal = AP_HAL::get_HAL();
 
@@ -24,14 +25,14 @@ void update_motors();
 #define HELI_TEST       0   // set to 1 to test helicopters
 #define NUM_OUTPUTS     4   // set to 6 for hexacopter, 8 for octacopter and heli
 
-SRV_Channels srvs;
+// SRV_Channels srvs;
 
 // uncomment the row below depending upon what frame you are using
 //AP_MotorsTri  motors(400);
-AP_MotorsMatrix   motors(400);
+// AP_MotorsMatrix   motors(400);
 //AP_MotorsHeli_Single motors(rc7, rsc, h1, h2, h3, h4, 400);
 //AP_MotorsSingle motors(400);
-//AP_MotorsCoax motors(400);
+AP_MotorsCoax motors(400);
 
 AP_BattMonitor _battmonitor{0, nullptr, nullptr};
 
@@ -186,5 +187,10 @@ void update_motors()
         motors.output();
     }
 }
+
+const struct AP_Param::GroupInfo        GCS_MAVLINK_Parameters::var_info[] = {
+    AP_GROUPEND
+};
+GCS_Dummy _gcs;
 
 AP_HAL_MAIN();

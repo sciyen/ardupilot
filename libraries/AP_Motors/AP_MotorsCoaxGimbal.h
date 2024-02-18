@@ -11,7 +11,7 @@
 #define AP_MOTORS_GIMBAL_POSITIVE      1
 #define AP_MOTORS_GIMBAL_NEGATIVE     -1
 
-#define RC_OUTPUT_TEST
+// #define RC_OUTPUT_TEST
 
 // #define NUM_ACTUATORS 2
 
@@ -77,10 +77,6 @@ protected:
 
     // debug only
     float _eta, _xi, _Tf, _Td, _u_P1, _u_P2;
-
-    // uint16_t _calc_pwm(float scaled_value, uint16_t servo_max, uint16_t servo_min);
-    // uint16_t _calc_pwm_x_from_angle(float deg);
-    // uint16_t _calc_pwm_y_from_angle(float deg);
 
     float _calc_scaled_x_from_angle(float deg);
     float _calc_scaled_y_from_angle(float deg);

@@ -28,7 +28,7 @@ uint16_t calc_pwm_y_from_angle(float deg);
 // static AP_BoardConfig BoardConfig;
 #define SERVO_OUTPUT_RANGE  4500
 
-// #define RC_OUTPUT
+#define RC_OUTPUT
 
 
 // static uint16_t pwm = 1500;
@@ -37,6 +37,8 @@ uint16_t calc_pwm_y_from_angle(float deg);
 #define LOWER_MOTOR_CH CH_2
 #define X_AXIS_SERVO_CH CH_4
 #define Y_AXIS_SERVO_CH CH_3
+
+#define ECHO_MOTOR_CH CH_5
 
 const uint16_t x_servo_min = 700;
 const uint16_t x_servo_max = 2300;
@@ -58,8 +60,10 @@ void setup(void)
 #ifdef RC_OUTPUT 
     hal.rcout->enable_ch(UPPER_MOTOR_CH);
     hal.rcout->enable_ch(LOWER_MOTOR_CH);
+    hal.rcout->enable_ch(ECHO_MOTOR_CH);
     hal.rcout->write(UPPER_MOTOR_CH, 1100);
     hal.rcout->write(LOWER_MOTOR_CH, 1100);
+    hal.rcout->write(ECHO_MOTOR_CH, 1100);
     hal.rcout->enable_ch(X_AXIS_SERVO_CH);
     hal.rcout->enable_ch(Y_AXIS_SERVO_CH);
 #else
@@ -112,8 +116,10 @@ void loop(void) {
     if( hal.console->available() ) {
         // get character from user
         int16_t tmp = hal.console->read();
-        if ((tmp=='t') || tmp=='c' || tmp=='m' || tmp=='s' || tmp==' ')
+        if (tmp=='t' || tmp=='c' || tmp=='m' || tmp=='s' || tmp=='e' || tmp==' '){
             value = tmp;
+            angle = -1.57;
+        }
     }
 
     // test motors
@@ -149,6 +155,7 @@ void loop(void) {
         hal.rcout->write(Y_AXIS_SERVO_CH, 1500);
         hal.rcout->write(UPPER_MOTOR_CH, 1100);
         hal.rcout->write(LOWER_MOTOR_CH, 1100);
+        hal.rcout->write(ECHO_MOTOR_CH, 1100);
     }
     else if (value == 's' || value == 'S') {
         hal.console->printf("ESC calibration, please plugin the power\n");
@@ -163,6 +170,18 @@ void loop(void) {
         hal.rcout->write(UPPER_MOTOR_CH, 1100);
         hal.rcout->write(LOWER_MOTOR_CH, 1100);
         value = ' ';
+    }
+    else if (value == 'e' || value == 'E') {
+        delta = 0.001f;
+        angle += delta;
+        hal.rcout->write(X_AXIS_SERVO_CH, calc_pwm_x_from_angle(0));
+        hal.rcout->write(Y_AXIS_SERVO_CH, calc_pwm_y_from_angle(0));
+        uint16_t pwm = 1140 + (int)((sinf(angle) + 1) * (1900-1140) / 2);
+        hal.rcout->write(UPPER_MOTOR_CH, pwm);
+        hal.rcout->write(LOWER_MOTOR_CH, pwm);
+        hal.rcout->write(ECHO_MOTOR_CH, pwm);
+        hal.console->printf("%d\n", pwm);
+        hal.scheduler->delay(5);
     }
     else{
         hal.rcout->write(UPPER_MOTOR_CH, 1100);

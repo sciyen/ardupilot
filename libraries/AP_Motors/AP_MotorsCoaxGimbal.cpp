@@ -44,17 +44,31 @@ void AP_MotorsGimbal::init(motor_frame_class frame_class, motor_frame_type frame
     hal.rcout->enable_ch(X_AXIS_SERVO_CH);
     hal.rcout->enable_ch(Y_AXIS_SERVO_CH);
 #else
-    for (uint8_t i = 0; i < 4; i++) {
-        add_motor_num(CH_1 + i);
-    }
-    SRV_Channels::set_output_min_max(SRV_Channel::k_motor1, x_servo_min, x_servo_max); // CH_1
-    SRV_Channels::set_output_min_max(SRV_Channel::k_motor2, y_servo_min, y_servo_max); // CH_2
-    SRV_Channels::set_output_min_max(SRV_Channel::k_motor3, 1100, 1900);
-    SRV_Channels::set_output_min_max(SRV_Channel::k_motor4, 1100, 1900);
-    SRV_Channels::set_trim_to_pwm_for(SRV_Channel::k_motor1, 1500);
-    SRV_Channels::set_trim_to_pwm_for(SRV_Channel::k_motor2, 1500);
-    SRV_Channels::set_trim_to_pwm_for(SRV_Channel::k_motor3, 1500);
-    SRV_Channels::set_trim_to_pwm_for(SRV_Channel::k_motor4, 1500);
+    // for (uint8_t i = 0; i < 4; i++) {
+    //     add_motor_num(CH_1 + i);
+    // }
+    // SRV_Channels::set_output_min_max(SRV_Channel::k_motor1, x_servo_min, x_servo_max); // CH_1
+    // SRV_Channels::set_output_min_max(SRV_Channel::k_motor2, y_servo_min, y_servo_max); // CH_2
+    // SRV_Channels::set_output_min_max(SRV_Channel::k_motor3, 1100, 1900);
+    // SRV_Channels::set_output_min_max(SRV_Channel::k_motor4, 1100, 1900);
+    // SRV_Channels::set_trim_to_pwm_for(SRV_Channel::k_motor1, 1500);
+    // SRV_Channels::set_trim_to_pwm_for(SRV_Channel::k_motor2, 1500);
+    // SRV_Channels::set_trim_to_pwm_for(SRV_Channel::k_motor3, 1500);
+    // SRV_Channels::set_trim_to_pwm_for(SRV_Channel::k_motor4, 1500);
+
+    // right throttle defaults to servo output 1
+    SRV_Channels::set_aux_channel_default(SRV_Channel::k_throttleRight, UPPER_MOTOR_CH);
+
+    // left throttle defaults to servo output 2
+    SRV_Channels::set_aux_channel_default(SRV_Channel::k_throttleLeft, LOWER_MOTOR_CH);
+
+    // right servo defaults to servo output 3
+    SRV_Channels::set_aux_channel_default(SRV_Channel::k_tiltMotorRight, X_AXIS_SERVO_CH);
+    SRV_Channels::set_angle(SRV_Channel::k_tiltMotorRight, AP_MOTORS_GIMBAL_SERVO_INPUT_RANGE);
+
+    // left servo defaults to servo output 4
+    SRV_Channels::set_aux_channel_default(SRV_Channel::k_tiltMotorLeft, Y_AXIS_SERVO_CH);
+    SRV_Channels::set_angle(SRV_Channel::k_tiltMotorLeft, AP_MOTORS_GIMBAL_SERVO_INPUT_RANGE);
 
     hal.console->printf("Enabling motor\n");
     // set the motor_enabled flag so that the main ESC can be calibrated like other frame types
@@ -69,11 +83,6 @@ void AP_MotorsGimbal::init(motor_frame_class frame_class, motor_frame_type frame
 #ifdef RC_OUTPUT_TEST 
     hal.rcout->write(X_AXIS_SERVO_CH, 1500);
     hal.rcout->write(Y_AXIS_SERVO_CH, 1500);
-#else
-    // setup actuator scaling (servo)
-    for (uint8_t i = 0; i < _num_actuators; i++) {
-        SRV_Channels::set_angle(SRV_Channels::get_motor_function(CH_3 + i), AP_MOTORS_GIMBAL_SERVO_INPUT_RANGE);
-    }
 #endif
 
     _mav_type = MAV_TYPE_COAXIAL;
@@ -103,16 +112,26 @@ void AP_MotorsGimbal::set_update_rate(uint16_t speed_hz)
     // record requested speed
     _speed_hz = speed_hz;
 
+    #ifdef RC_OUTPUT_TEST 
+
     uint32_t mask =
         1U << UPPER_MOTOR_CH |
         1U << LOWER_MOTOR_CH |
         1U << X_AXIS_SERVO_CH |
         1U << Y_AXIS_SERVO_CH ;
     rc_set_freq(mask, _speed_hz);
+    #else
+    SRV_Channels::set_rc_frequency(SRV_Channel::k_throttleLeft, _speed_hz);
+    SRV_Channels::set_rc_frequency(SRV_Channel::k_throttleRight, _speed_hz);
+    #endif
 }
 
 void AP_MotorsGimbal::output_to_motors()
 {
+    if (!initialised_ok()) {
+        return;
+    }
+
 #ifdef RC_OUTPUT_TEST
     switch (_spool_state) {
         case SpoolState::SHUT_DOWN:
@@ -144,32 +163,31 @@ void AP_MotorsGimbal::output_to_motors()
     switch (_spool_state) {
         case SpoolState::SHUT_DOWN:
             // sends minimum values out to the motors
-            rc_write_angle(AP_MOTORS_MOT_1, _roll_radio_passthrough * AP_MOTORS_GIMBAL_SERVO_INPUT_RANGE);
-            rc_write_angle(AP_MOTORS_MOT_2, _pitch_radio_passthrough * AP_MOTORS_GIMBAL_SERVO_INPUT_RANGE);
-            rc_write(AP_MOTORS_MOT_3, output_to_pwm(0));
-            rc_write(AP_MOTORS_MOT_4, output_to_pwm(0));
+            _actuator_out[UPPER_MOTOR_CH] = 0.0f;
+            _actuator_out[LOWER_MOTOR_CH] = 0.0f;
+            _actuator_out[X_AXIS_SERVO_CH] = 0.0f;
+            _actuator_out[Y_AXIS_SERVO_CH] = 0.0f;
             break;
         case SpoolState::GROUND_IDLE:
             // sends output to motors when armed but not flying
-            rc_write_angle(AP_MOTORS_MOT_1, _calc_scaled_x_from_angle(0.0f));
-            rc_write_angle(AP_MOTORS_MOT_2, _calc_scaled_y_from_angle(0.0f));
-            set_actuator_with_slew(_actuator[AP_MOTORS_MOT_3], actuator_spin_up_to_ground_idle());
-            set_actuator_with_slew(_actuator[AP_MOTORS_MOT_4], actuator_spin_up_to_ground_idle());
-            rc_write(AP_MOTORS_MOT_3, output_to_pwm(_actuator[AP_MOTORS_MOT_3]));
-            rc_write(AP_MOTORS_MOT_4, output_to_pwm(_actuator[AP_MOTORS_MOT_4]));
+            set_actuator_with_slew(_actuator[UPPER_MOTOR_CH], actuator_spin_up_to_ground_idle());
+            set_actuator_with_slew(_actuator[LOWER_MOTOR_CH], actuator_spin_up_to_ground_idle());
             break;
         case SpoolState::SPOOLING_UP:
         case SpoolState::THROTTLE_UNLIMITED:
         case SpoolState::SPOOLING_DOWN:
             // set motor output based on thrust requests
-            rc_write_angle(AP_MOTORS_MOT_1, _calc_scaled_x_from_angle(_actuator_out[AP_MOTORS_MOT_1]));
-            rc_write_angle(AP_MOTORS_MOT_2, _calc_scaled_y_from_angle(_actuator_out[AP_MOTORS_MOT_2]));
-            set_actuator_with_slew(_actuator_out[AP_MOTORS_MOT_3], thrust_to_actuator(_thrust_yt_ccw));
-            set_actuator_with_slew(_actuator_out[AP_MOTORS_MOT_4], thrust_to_actuator(_thrust_yt_cw));
-            rc_write(AP_MOTORS_MOT_3, output_to_pwm(_actuator_out[AP_MOTORS_MOT_3]));
-            rc_write(AP_MOTORS_MOT_4, output_to_pwm(_actuator_out[AP_MOTORS_MOT_4]));
+            set_actuator_with_slew(_actuator[UPPER_MOTOR_CH], thrust_to_actuator(_thrust_left));
+            set_actuator_with_slew(_actuator[LOWER_MOTOR_CH], thrust_to_actuator(_thrust_left));
             break;
     }
+    
+    SRV_Channels::set_output_pwm(SRV_Channel::k_throttleRight, output_to_pwm(_actuator[UPPER_MOTOR_CH]));
+    SRV_Channels::set_output_pwm(SRV_Channel::k_throttleLeft, output_to_pwm(_actuator[LOWER_MOTOR_CH]));
+
+    // use set scaled to allow a different PWM range on plane forward throttle, throttle range is 0 to 100
+    SRV_Channels::set_output_scaled(SRV_Channel::k_tiltMotorLeft, _tilt_left*AP_MOTORS_GIMBAL_SERVO_INPUT_RANGE);
+    SRV_Channels::set_output_scaled(SRV_Channel::k_tiltMotorRight, _tilt_right*AP_MOTORS_GIMBAL_SERVO_INPUT_RANGE);
 #endif
 }
 
@@ -177,12 +195,23 @@ void AP_MotorsGimbal::output_to_motors()
 //  this can be used to ensure other pwm outputs (i.e. for servos) do not conflict
 uint32_t AP_MotorsGimbal::get_motor_mask()
 {
+#ifdef RC_OUTPUT_TEST
     uint32_t motor_mask =
         1U << UPPER_MOTOR_CH |
         1U << LOWER_MOTOR_CH |
         1U << X_AXIS_SERVO_CH |
         1U << Y_AXIS_SERVO_CH;
     uint32_t mask = motor_mask_to_srv_channel_mask(motor_mask);
+#else
+    uint32_t mask = 0;
+    uint8_t chan;
+    if (SRV_Channels::find_channel(SRV_Channel::k_throttleLeft, chan)) {
+        mask |= 1U << chan;
+    }
+    if (SRV_Channels::find_channel(SRV_Channel::k_throttleRight, chan)) {
+        mask |= 1U << chan;
+    }
+#endif
 
     // add parent's mask
     mask |= AP_MotorsMulticopter::get_motor_mask();
@@ -197,8 +226,10 @@ void AP_MotorsGimbal::output_armed_stabilizing()
     // const float C_L;
     // const float k_d = 0.5f; // = k_w * k_w * rho * power(d, 5) * C_D
     // const float k_f = 1.5f * 9.818f; // = k_w * k_w * rho * power(d, 4) * C_L
-    const float k_d = 1.0f; // = k_w * k_w * rho * power(d, 5) * C_D
-    const float k_f = 10.0f; // = k_w * k_w * rho * power(d, 4) * C_L
+    const float k_d = 0.2132f; // = k_w * k_w * rho * power(d, 5) * C_D
+    const float k_d2 = 0.0043f;
+    const float k_f = 10.2645f; // = k_w * k_w * rho * power(d, 4) * C_L
+    const float k_f2 = -2.9717f;
     // const float prop_d = 9 * 0.0254;    // meter
     const float max_M_x = 0.1f;         // Nm
     const float max_M_y = 0.1f;         // Nm
@@ -262,7 +293,7 @@ void AP_MotorsGimbal::output_armed_stabilizing()
 
     // Solve for motor and actuator commands
     const float det_W1 = (l_pg * l_pg * T_f * T_f + T_d * T_d);
-    float eta = RAD_TO_DEG  * (l_pg * T_f * M_x - T_d * M_y) / det_W1;   // in radian
+    float eta = -RAD_TO_DEG  * (l_pg * T_f * M_x - T_d * M_y) / det_W1;   // in radian
     float xi = RAD_TO_DEG * (T_d * M_x + l_pg * T_f * M_y) / det_W1;    // in radian
 
     // hal.console->printf("\n\nAfter servo angle calculation:\n");
@@ -281,6 +312,8 @@ void AP_MotorsGimbal::output_armed_stabilizing()
     // hal.console->printf("xi: %.8f\n", xi);
 
     // Bounding for motor and actuator commands (avoiding imaginary output)
+    T_f -= k_f2;
+    T_d -= k_d2;
     float u_P1 = (T_f / k_f - T_d / k_d) / 2.0f;
     float u_P2 = (T_f / k_f + T_d / k_d) / 2.0f;
     // float T_P1 = T_f / (2 * C_L) + T_d / (2 * prop_d * C_D);
@@ -310,6 +343,7 @@ void AP_MotorsGimbal::output_armed_stabilizing()
 void AP_MotorsGimbal::_output_test_seq(uint8_t motor_seq, int16_t pwm)
 {
     // output to motors and servos
+#ifdef RC_OUTPUT_TEST
     switch (motor_seq) {
         case 1:
             // flap servo 1
@@ -331,6 +365,29 @@ void AP_MotorsGimbal::_output_test_seq(uint8_t motor_seq, int16_t pwm)
             // do nothing
             break;
     }
+#else
+    switch (motor_seq) {
+        case 1:
+            // right throttle
+            SRV_Channels::set_output_pwm(SRV_Channel::k_throttleRight, pwm);
+            break;
+        case 2:
+            // right tilt servo
+            SRV_Channels::set_output_pwm(SRV_Channel::k_tiltMotorRight, pwm);
+            break;
+        case 3:
+            // left throttle
+            SRV_Channels::set_output_pwm(SRV_Channel::k_throttleLeft, pwm);
+            break;
+        case 4:
+            // left tilt servo
+            SRV_Channels::set_output_pwm(SRV_Channel::k_tiltMotorLeft, pwm);
+            break;
+        default:
+            // do nothing
+            break;
+    }
+#endif
 }
 
 float AP_MotorsGimbal::_calc_scaled_x_from_angle(float deg){
